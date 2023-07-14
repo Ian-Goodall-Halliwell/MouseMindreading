@@ -4,7 +4,7 @@ import numpy as np
 import torch.nn as nn
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import f1_score
-from alsoinspectdata import preprocess
+from wrangler import preprocess
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 
