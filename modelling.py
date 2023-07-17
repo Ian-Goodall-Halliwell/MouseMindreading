@@ -9,25 +9,27 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 
 import pickle as pkl
+ver = 'single-session'
 
-
-testrundata = preprocess(10)
+testrundata = preprocess(10,ver=ver)
 feats = testrundata['features']
 labels = testrundata['labels']
-mins = testrundata['cutoffs']
+if ver != 'single-session':
+    mins = testrundata['cutoffs']
 
-region='MOs'
-X = feats[region]
-y = labels[region]
+    region='MOs'
+    X = feats[region]
+    y = labels[region]
 
-#subsampling
-for en,sample in enumerate(X):
-    
-    indexsample = np.random.choice(range(sample.shape[0]),size=mins[region])
-    X[en] = sample[indexsample]
+    #subsampling
+    for en,sample in enumerate(X):
+        
+        indexsample = np.random.choice(range(sample.shape[0]),size=mins[region])
+        X[en] = sample[indexsample]
 
-
-
+else:
+    X = feats['Cori2016-12-14']
+    y = labels['Cori2016-12-14']
 from sklearn.preprocessing import LabelEncoder
 
 encoder = LabelEncoder()
@@ -53,22 +55,24 @@ class RNNClassifier(nn.Module):
         self.hidden_size = hidden_size
         self.num_layers = num_layers
         
-        self.rnn = nn.RNN(input_size, hidden_size, num_layers, batch_first=True)
+        self.rnn = nn.LSTM(input_size, hidden_size, num_layers, batch_first=True)
         self.fc = nn.Linear(hidden_size, output_size)
         self.sigmoid = nn.Sigmoid()
         
     def forward(self, x):
+        # h0 = torch.zeros(self.num_layers, x.size(0), self.hidden_size).to(x.device)
+        # out, _ = self.rnn(x, h0)
         h0 = torch.zeros(self.num_layers, x.size(0), self.hidden_size).to(x.device)
-        
-        out, _ = self.rnn(x, h0)
+        c0 = torch.zeros(self.num_layers, x.size(0), self.hidden_size).to(x.device)
+        out, _ = self.rnn(x, (h0, c0))
         out = self.fc(out[:, -1, :])
         out = self.sigmoid(out)
         
         return out
 
 # Set the hyperparameters
-input_size = 39  # Dimensionality of the input features
-hidden_size = 64  # Number of units in the hidden layer
+input_size = X.real.shape[1]  # Dimensionality of the input features
+hidden_size = 16  # Number of units in the hidden layer
 num_layers = 2  # Number of recurrent layers
 output_size = 1  # Number of classes (binary)
 
@@ -78,9 +82,9 @@ model = RNNClassifier(input_size, hidden_size, num_layers, output_size)
 # Define the loss function and optimizer
 criterion = nn.BCELoss()
 optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
-
+X = X.transpose(1,2)
 # Training loop
-num_epochs = 500
+num_epochs = 100
 for epoch in range(num_epochs):
     # Forward pass
     outputs = model(X)  # inputs is your training data
@@ -97,7 +101,7 @@ for epoch in range(num_epochs):
     print(f"Epoch {epoch+1}/{num_epochs}, Loss: {loss.item()}")
 
 # To make predictions, use the trained model like this:
-test_outputs = model(X_test)  # test_inputs is your test data
+test_outputs = model(X_test.transpose(1,2))  # test_inputs is your test data
 predicted_labels = torch.round(test_outputs)  # Round the outputs to obtain binary predictions
 predicted_labels = predicted_labels.detach().numpy()
 true_labels = y_test.detach().numpy()
