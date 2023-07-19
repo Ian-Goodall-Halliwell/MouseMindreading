@@ -5,16 +5,20 @@ import torch.nn as nn
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import f1_score
 from wrangler import preprocess
+from wranglergoofy import preprocess as pp2
+import optuna
+from model import RNNmodel
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-
+from torch.utils.data import DataLoader
 
 import pickle as pkl
-ver = 'single-session'
+ver = 'goofy'
 
-testrundata = preprocess(10,ver=ver)
-feats = testrundata['features']
-labels = testrundata['labels']
-if ver != 'single-session':
+
+if ver == 'regions':
+    testrundata = preprocess(10,ver=ver)
+    feats = testrundata['features']
+    labels = testrundata['labels']
     mins = testrundata['cutoffs']
 
     region='MOs'
@@ -27,9 +31,16 @@ if ver != 'single-session':
         indexsample = np.random.choice(range(sample.shape[0]),size=mins[region])
         X[en] = sample[indexsample]
 
-else:
+elif ver == 'single-session':
+    testrundata = preprocess(10,ver=ver)
+    feats = testrundata['features']
+    labels = testrundata['labels']
     X = feats['Cori2016-12-14']
     y = labels['Cori2016-12-14']
+elif ver == 'goofy':
+    data = pp2()
+    X = data['features']
+    y = data['labels']
 from sklearn.preprocessing import LabelEncoder
 
 encoder = LabelEncoder()
@@ -37,78 +48,52 @@ encoder.fit(y)
 y = encoder.transform(y)
 print(np.mean(y))
 
-X_train, X_test, y_train,  y_test = train_test_split(X,y,test_size=.20,stratify=y)
+X_train, X_test, y_train,  y_test = train_test_split(X,y,test_size=.30)
 
 
-X = torch.tensor(X_train,dtype=torch.float32)
-y = torch.tensor(y_train,dtype=torch.float32).reshape(-1,1)
-X_test = torch.tensor(X_test,dtype=torch.float32)
-y_test = torch.tensor(y_test,dtype=torch.float32).reshape(-1,1)
-import torch
-import torch.nn as nn
-
-# Define the RNN model
-class RNNClassifier(nn.Module):
-    def __init__(self, input_size, hidden_size, num_layers, output_size):
-        super(RNNClassifier, self).__init__()
-        
-        self.hidden_size = hidden_size
-        self.num_layers = num_layers
-        
-        self.rnn = nn.LSTM(input_size, hidden_size, num_layers, batch_first=True)
-        self.fc = nn.Linear(hidden_size, output_size)
-        self.sigmoid = nn.Sigmoid()
-        
-    def forward(self, x):
-        # h0 = torch.zeros(self.num_layers, x.size(0), self.hidden_size).to(x.device)
-        # out, _ = self.rnn(x, h0)
-        h0 = torch.zeros(self.num_layers, x.size(0), self.hidden_size).to(x.device)
-        c0 = torch.zeros(self.num_layers, x.size(0), self.hidden_size).to(x.device)
-        out, _ = self.rnn(x, (h0, c0))
-        out = self.fc(out[:, -1, :])
-        out = self.sigmoid(out)
-        
-        return out
-
-# Set the hyperparameters
-input_size = X.real.shape[1]  # Dimensionality of the input features
-hidden_size = 16  # Number of units in the hidden layer
-num_layers = 2  # Number of recurrent layers
-output_size = 1  # Number of classes (binary)
-
-# Create an instance of the RNN classifier
-model = RNNClassifier(input_size, hidden_size, num_layers, output_size)
-
-# Define the loss function and optimizer
-criterion = nn.BCELoss()
-optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
-X = X.transpose(1,2)
-# Training loop
-num_epochs = 100
-for epoch in range(num_epochs):
-    # Forward pass
-    outputs = model(X)  # inputs is your training data
+X = torch.tensor(np.array(X_train),dtype=torch.float32)
+y = torch.tensor(np.array(y_train),dtype=torch.float32).reshape(-1,1)
+X_test = torch.tensor(np.array(X_test),dtype=torch.float32)
+y_test = torch.tensor(np.array(y_test),dtype=torch.float32).reshape(-1,1)
+test = True
+if test:
+    input_size = 39  # Dimensionality of the input features
+    hidden_size = 64  # Number of units in the hidden layer
+    num_layers = 1  # Number of recurrent layers
+    model_arch = 'lstm'
+    num_epochs = 100
+    batch_size = 100
+    dropout = 0
+    l2 = 0
+    lr = 0.001
+    output_size = 1  # Number of classes (binary)
     
-    # Compute the loss
-    loss = criterion(outputs, y)  # labels is your target
-    
-    # Backward and optimize
-    optimizer.zero_grad()
-    loss.backward()
-    optimizer.step()
-    
-    # Print the loss for every epoch
-    print(f"Epoch {epoch+1}/{num_epochs}, Loss: {loss.item()}")
+    model = RNNmodel(input_size,hidden_size,num_layers,output_size,model_arch,num_epochs,batch_size,dropout,l2,lr)
+    dataloader = DataLoader(list(zip(X, y)), batch_size=model.batch_size, pin_memory=True, pin_memory_device='cuda', shuffle=False)
+    dataloader_true = DataLoader(list(zip(X_test, y_test)), batch_size=model.batch_size, pin_memory=True, pin_memory_device='cuda', shuffle=False)
+    model.train(dataloader, dataloader_true)
+    preds, all_reals = model.predict(dataloader_true)
+    score = f1_score(all_reals, preds)
+    print(score)
 
-# To make predictions, use the trained model like this:
-test_outputs = model(X_test.transpose(1,2))  # test_inputs is your test data
-predicted_labels = torch.round(test_outputs)  # Round the outputs to obtain binary predictions
-predicted_labels = predicted_labels.detach().numpy()
-true_labels = y_test.detach().numpy()
-from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
-import matplotlib.pyplot as plt
-print(f"f1 score: {f1_score(true_labels,predicted_labels)}")
-plotdata = confusion_matrix(true_labels,predicted_labels)
-plot = ConfusionMatrixDisplay(plotdata)
-plot.plot()
-plt.show()
+def optim(trial):
+    # Set the hyperparameters
+    input_size = 39  # Dimensionality of the input features
+    hidden_size = trial.suggest_categorical('hidden_size',[32,64,128,256])  # Number of units in the hidden layer
+    num_layers = trial.suggest_categorical('num_layers',[1,2])  # Number of recurrent layers
+    model_arch = 'lstm'
+    num_epochs = num_epochs = 100
+    batch_size = 100
+    dropout = trial.suggest_categorical('dropout',[0,0.1])
+    l2 = trial.suggest_categorical('l2',[0,0.0001,0.001,0.01])
+    lr = 0.01
+    output_size = 1  # Number of classes (binary)
+    model = RNNmodel(input_size,hidden_size,num_layers,output_size,model_arch,num_epochs,batch_size,dropout,l2,lr)
+    return model.cross_validate(X,y)
+    
+    
+    
+study_name = "flatbrain"  # Unique identifier of the study.
+storage_name = "sqlite:///{}.db".format(study_name)
+study = optuna.create_study(storage=storage_name,direction="maximize",study_name=study_name,load_if_exists=True)
+study.optimize(optim)
