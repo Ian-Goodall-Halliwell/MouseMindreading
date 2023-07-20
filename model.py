@@ -5,7 +5,8 @@ from sklearn.model_selection import KFold
 from sklearn.metrics import f1_score
 import numpy as np
 import tqdm
-from torch.nn.utils.rnn import pad_sequence, pack_padded_sequence, pad_packed_sequence
+from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
+
 class RNNClassifier(nn.Module):
     """
     RNNClassifier is a class that defines the RNN-based classifier model.
@@ -26,7 +27,6 @@ class RNNClassifier(nn.Module):
         fc (nn.Linear): Fully connected layer for output.
         sigmoid (nn.Sigmoid): Sigmoid activation function.
     """
-
     def __init__(self, input_size, hidden_size, num_layers, output_size, model_arch, dropout):
         super(RNNClassifier, self).__init__()
 
@@ -53,6 +53,8 @@ class RNNClassifier(nn.Module):
 
         Args:
             x (torch.Tensor): Input tensor of shape (batch_size, sequence_length, input_size).
+            lengths (torch.Tensor): Tensor of sequence lengths for each sequence in the batch.
+            mask (torch.Tensor): Binary mask indicating valid elements in the padded sequences.
 
         Returns:
             torch.Tensor: Output tensor of shape (batch_size, output_size).
@@ -64,14 +66,9 @@ class RNNClassifier(nn.Module):
             output, _ = self.rnn(packed_data)
         output, _ = pad_packed_sequence(output, batch_first=True)
         out = output * mask.unsqueeze(2)
-            
-        
-
         out = self.fc(out[:, -1, :])
         out = self.sigmoid(out)
-
         return out
-
 
 class RNNmodel():
     """
@@ -102,7 +99,6 @@ class RNNmodel():
         lr (float): Learning rate.
         model (RNNClassifier): Instance of the RNNClassifier model.
     """
-
     def __init__(self, input_size, hidden_size, num_layers, output_size, model_arch, num_epochs, batch_size, dropout, l2, lr):
         self.input_size = input_size
         self.hidden_size = hidden_size
@@ -124,7 +120,6 @@ class RNNmodel():
             train_dataloader (DataLoader): DataLoader for training data.
             valid_dataloader (DataLoader): DataLoader for validation data.
         """
-        
         self.model = RNNClassifier(self.input_size, self.hidden_size, self.num_layers, self.output_size, self.model_arch, self.dropout).to('cuda')
 
         # Define the loss function and optimizer
@@ -133,7 +128,6 @@ class RNNmodel():
 
         # Training loop
         prevloss = 1000
-        first = True
         count = 0
         state = None
         optimstate = None
@@ -145,8 +139,7 @@ class RNNmodel():
             for padded_data, sequence_lengths, mask, batch_target in train_dataloader:
 
                 optimizer.zero_grad()
-                outputs = self.model(padded_data,sequence_lengths,mask)
-                #targets = targets.view(-1, self.output_size)
+                outputs = self.model(padded_data, sequence_lengths, mask)
                 loss = criterion(outputs.squeeze(), batch_target)
                 loss.backward()
                 optimizer.step()
@@ -158,14 +151,13 @@ class RNNmodel():
             with torch.no_grad():
                 for padded_data, sequence_lengths, mask, batch_target in valid_dataloader:
 
-                    pred = self.model(padded_data,sequence_lengths,mask)
+                    pred = self.model(padded_data, sequence_lengths, mask)
                     test_loss += criterion(pred.squeeze(), batch_target).item()
 
             avg_loss = total_loss / len(train_dataloader)
             test_avg_loss = test_loss / len(valid_dataloader)
 
             if test_avg_loss >= prevloss:
-                
                 count += 1
                 if count >= 40:
                     self.model.load_state_dict(state)
@@ -178,7 +170,6 @@ class RNNmodel():
                 state = self.model.state_dict()
                 optimstate = optimizer.state_dict()
             bar.update(1)
-            #print(f"Epoch [{epoch+1}/{self.num_epochs}], Train Loss: {avg_loss:.4f}, Valid Loss: {test_avg_loss:.4f}")
 
         self.model.load_state_dict(state)
         bar.close()
@@ -199,7 +190,7 @@ class RNNmodel():
             preds = []
             reals = []
             for padded_data, sequence_lengths, mask, batch_target in test_dataloader:
-                predictions = self.model(padded_data,sequence_lengths,mask)
+                predictions = self.model(padded_data, sequence_lengths, mask)
                 reals.append(batch_target.to('cuda'))
                 preds.append(predictions.flatten(end_dim=1))
 
@@ -223,7 +214,7 @@ class RNNmodel():
         """
         scores = []
         cv = KFold(5)
-        
+
         for train, test in cv.split(X, y):
             dataloader = DataLoader(list(zip([torch.tensor(X[i]) for i in train], [y[i] for i in train])), batch_size=self.batch_size,  shuffle=True, collate_fn=custom_collate_fn)
             dataloader_true = DataLoader(list(zip([torch.tensor(X[i]) for i in test], [y[i] for i in test])), batch_size=self.batch_size,  shuffle=True, collate_fn=custom_collate_fn)
@@ -237,36 +228,36 @@ class RNNmodel():
 
 def reverse_padded_sequence(tensor, lengths):
     """
-    :param tensor: (B, max_length, *)
-    :param lengths: (B,)
-    :return:
+    Reverses the padded sequence along the time dimension.
+
+    Args:
+        tensor (torch.Tensor): Padded tensor of shape (batch_size, max_length, *).
+        lengths (torch.Tensor): Tensor of sequence lengths for each sequence in the batch.
+
+    Returns:
+        torch.Tensor: Tensor with reversed padded sequence.
     """
     lengths = lengths.to(torch.int32)
-    tenlen = len(tensor)
-    out = np.zeros([tenlen,max([v.shape[0] for v in tensor]),tensor[1].shape[1]])
+    out = np.zeros([len(tensor), max([v.shape[0] for v in tensor]), tensor[1].shape[1]])
     tensor_t = [t.cpu().numpy() for t in tensor]
     for i in range(out.shape[0]):
-         out[i, -lengths[i]:, :] = tensor_t[i]
-    return torch.tensor(out,dtype=torch.float32).to('cuda')
+        out[i, -lengths[i]:, :] = tensor_t[i]
+    return torch.tensor(out, dtype=torch.float32).to('cuda')
+
 # Create a DataLoader for batching with custom collate function
 def custom_collate_fn(batch):
     inputs, targets = zip(*batch)
-    length=max([len(xt) for xt in inputs])
-    inputs = [x.to(torch.float32).to('cuda').transpose(0,1) for x in inputs]
+    length = max([len(xt) for xt in inputs])
+    inputs = [x.to(torch.float32).to('cuda').transpose(0, 1) for x in inputs]
     # Sort inputs by sequence length in descending order
     sorted_inputs = sorted(zip(inputs, targets), key=lambda x: len(x[0]), reverse=True)
     inputs, targets = zip(*sorted_inputs)
-    
-    # Pad the sequences to the same length within a batch
-    
-    #padded_data = pad_sequence(inputs, batch_first=True)
 
-    # Get the original sequence lengths
-    sequence_lengths = torch.tensor([len(seq) for seq in inputs],dtype=torch.float32)
-    padded_data =reverse_padded_sequence(inputs, sequence_lengths)
+    # Pad the sequences to the same length within a batch
+    sequence_lengths = torch.tensor([len(seq) for seq in inputs], dtype=torch.float32)
+    padded_data = reverse_padded_sequence(inputs, sequence_lengths)
+
     # Create a binary mask indicating valid elements
     mask = torch.arange(padded_data.size(1)).expand(len(sequence_lengths), padded_data.size(1)) < sequence_lengths.unsqueeze(1)
 
-    return padded_data, sequence_lengths, mask.to('cuda'), torch.tensor(targets,dtype=torch.float32).to('cuda')
-
-
+    return padded_data, sequence_lengths, mask.to('cuda'), torch.tensor(targets, dtype=torch.float32).to('cuda')

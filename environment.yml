@@ -116,20 +116,32 @@ dependencies:
   - pip:
       - absl-py==1.3.0
       - addict==2.4.0
-      - aiohttp==3.8.3
+      - aiohttp==3.7.4
       - aiosignal==1.3.1
       - alembic==1.8.1
+      - allensdk==2.15.1
+      - argschema==3.0.4
       - asttokens==2.2.1
-      - async-timeout==4.0.2
-      - attrs==22.1.0
+      - async-timeout==3.0.1
+      - attrs==23.1.0
       - backcall==0.2.0
       - backports-zoneinfo==0.2.1
+      - beautifulsoup4==4.12.2
+      - bg-atlasapi==1.0.2
+      - bg-space==0.6.0
       - bidict==0.22.0
-      - cachetools==5.2.0
+      - boto3==1.17.21
+      - botocore==1.20.112
+      - brainrender==2.0.5.5
+      - bs4==0.0.1
+      - cachetools==4.2.4
       - certifi==2022.9.24
+      - chardet==3.0.4
       - click==8.1.3
       - cloudpickle==2.2.0
+      - cmaes==0.9.1
       - colorama==0.4.6
+      - colorlog==6.7.0
       - comm==0.1.3
       - contourpy==1.0.6
       - cvxpy==1.2.2
@@ -139,8 +151,10 @@ dependencies:
       - dateparser==1.1.4
       - debugpy==1.6.7
       - decorator==5.1.1
+      - deprecated==1.2.14
       - dill==0.3.6
       - distributed==2022.12.0
+      - distro==1.8.0
       - docker==6.0.1
       - docopt==0.6.2
       - ecos==2.0.10
@@ -155,6 +169,8 @@ dependencies:
       - future==0.18.2
       - gitdb==4.0.10
       - gitpython==3.1.29
+      - glymur==0.8.19
+      - google==3.0.0
       - google-auth==2.14.1
       - google-auth-oauthlib==0.4.6
       - greenlet==2.0.1
@@ -162,40 +178,58 @@ dependencies:
       - gym==0.26.2
       - gym-notices==0.0.8
       - h5py==3.9.0
+      - hdmf==3.4.7
       - heapdict==1.0.1
       - hyperopt==0.1.2
+      - imageio==2.31.1
       - importlib-metadata==5.1.0
       - importlib-resources==5.10.0
+      - ipydatawidgets==4.3.5
       - ipykernel==6.24.0
       - ipython==8.12.2
       - ipywidgets==8.0.7
       - itsdangerous==2.1.2
       - jedi==0.18.2
       - jinja2==3.0.3
+      - jmespath==0.10.0
       - joblib==1.2.0
       - jsonpickle==1.5.2
+      - jsonschema==4.18.3
+      - jsonschema-specifications==2023.6.1
       - jupyter-client==8.3.0
       - jupyter-core==5.3.1
       - jupyterlab-widgets==3.0.8
+      - k3d==2.7.4
       - kiwisolver==1.4.4
+      - lazy-loader==0.3
       - lightgbm==3.3.3
       - llvmlite==0.39.1
       - locket==1.0.0
       - loguru==0.6.0
       - mako==1.2.4
       - markdown==3.4.1
+      - markdown-it-py==3.0.0
       - markupsafe==2.1.1
-      - matplotlib==3.6.2
+      - marshmallow==3.19.0
+      - matplotlib==3.4.2
       - matplotlib-inline==0.1.6
+      - mdurl==0.1.2
+      - meshio==5.3.4
       - mlflow==2.0.1
+      - morphapi==0.1.10
+      - morphio==3.3.6
       - msgpack==1.0.4
       - multidict==6.0.3
       - munch==2.5.0
+      - myterial==1.2.1
+      - ndx-events==0.2.0
       - nest-asyncio==1.5.6
       - networkx==2.8.8
+      - neurom==3.2.2
       - numba==0.56.4
       - numexpr==2.8.4
       - oauthlib==3.2.2
+      - optuna==3.2.0
       - osqp==0.6.2.post8
       - packaging==21.3
       - pandas==1.5.2
@@ -204,19 +238,25 @@ dependencies:
       - patsy==0.5.3
       - pickleshare==0.7.5
       - pillow==9.3.0
+      - pkgutil-resolve-name==1.3.10
       - platformdirs==3.8.1
       - plotly==5.11.0
       - prompt-toolkit==3.0.39
       - protobuf==3.19.6
       - psutil==5.9.4
+      - psycopg2-binary==2.9.6
       - pure-eval==0.2.2
+      - py==1.11.0
       - py-cpuinfo==9.0.0
       - pyarrow==10.0.1
       - pyasn1==0.4.8
       - pyasn1-modules==0.2.8
       - pygments==2.15.1
+      - pyinspect==0.1.0
       - pyjwt==2.6.0
       - pymongo==3.7.2
+      - pynrrd==0.4.3
+      - pynwb==2.2.0
       - pyparsing==3.0.9
       - pyqlib==0.8.6
       - python-binance==1.0.16
@@ -226,31 +266,46 @@ dependencies:
       - python-socketio==5.7.2
       - pytz==2022.6
       - pytz-deprecation-shim==0.1.0.post0
+      - pywavelets==1.4.1
       - pywin32==305
       - pyyaml==6.0
       - pyzmq==25.1.0
       - qdldl==0.1.5.post2
+      - qtpy==2.3.1
       - querystring-parser==1.2.4
       - redis==4.3.5
+      - referencing==0.29.1
       - regex==2022.10.31
       - requests-oauthlib==1.3.1
+      - requests-toolbelt==0.10.1
+      - retry==0.9.2
+      - rich==13.4.2
+      - rpds-py==0.8.11
       - rsa==4.9
       - ruamel-yaml==0.17.21
       - ruamel-yaml-clib==0.2.7
+      - s3transfer==0.3.7
       - sacred==0.8.2
       - schedule==1.1.0
+      - scikit-build==0.17.6
+      - scikit-image==0.21.0
       - scikit-learn==1.1.3
       - scipy==1.9.3
       - scs==3.2.2
+      - seaborn==0.12.2
+      - semver==3.0.1
       - shap==0.41.0
+      - simpleitk==2.2.1
+      - simplejson==3.19.1
       - six==1.16.0
       - slicer==0.0.7
       - smmap==5.0.0
       - sortedcontainers==2.4.0
+      - soupsieve==2.4.1
       - sqlalchemy==1.4.44
       - sqlparse==0.4.3
       - stack-data==0.6.2
-      - statsmodels==0.13.5
+      - statsmodels==0.13.0
       - ta==0.10.2
       - tables==3.7.0
       - tabulate==0.9.0
@@ -262,16 +317,22 @@ dependencies:
       - termcolor==2.1.1
       - threadpoolctl==3.1.0
       - tianshou==0.4.10
+      - tifffile==2023.7.10
+      - tomli==2.0.1
       - toolz==0.12.0
       - torchaudio==0.13.0
       - torchvision==0.14.0
       - tornado==6.2
       - tqdm==4.64.1
       - traitlets==5.9.0
+      - traittypes==0.2.1
+      - treelib==1.6.4
       - tzdata==2022.7
       - tzlocal==4.2
       - ujson==5.6.0
       - utilsd==0.0.15
+      - vedo==2021.0.5
+      - vtk==9.2.6
       - waitress==2.1.2
       - wcwidth==0.2.6
       - websocket-client==1.4.2
@@ -280,6 +341,7 @@ dependencies:
       - widgetsnbextension==4.0.8
       - win32-setctime==1.1.0
       - wrapt==1.14.1
+      - xarray==2023.1.0
       - xlrd==2.0.1
       - yapf==0.32.0
       - yarl==1.8.2
