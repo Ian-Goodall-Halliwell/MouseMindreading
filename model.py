@@ -99,7 +99,7 @@ class RNNmodel():
         lr (float): Learning rate.
         model (RNNClassifier): Instance of the RNNClassifier model.
     """
-    def __init__(self, input_size, hidden_size, num_layers, output_size, model_arch, num_epochs, batch_size, dropout, l2, lr):
+    def __init__(self, input_size, hidden_size, num_layers, output_size, model_arch, num_epochs, batch_size, dropout, l2, lr, device):
         self.input_size = input_size
         self.hidden_size = hidden_size
         self.num_layers = num_layers
@@ -111,6 +111,7 @@ class RNNmodel():
         self.l2 = l2
         self.lr = lr
         self.model = None
+        self.device = device
 
     def train(self, train_dataloader, valid_dataloader):
         """
@@ -120,7 +121,7 @@ class RNNmodel():
             train_dataloader (DataLoader): DataLoader for training data.
             valid_dataloader (DataLoader): DataLoader for validation data.
         """
-        self.model = RNNClassifier(self.input_size, self.hidden_size, self.num_layers, self.output_size, self.model_arch, self.dropout).to('cuda')
+        self.model = RNNClassifier(self.input_size, self.hidden_size, self.num_layers, self.output_size, self.model_arch, self.dropout).to(self.device)
 
         # Define the loss function and optimizer
         criterion = nn.BCELoss()
@@ -132,7 +133,7 @@ class RNNmodel():
         state = None
         optimstate = None
         bar = tqdm.tqdm(total=self.num_epochs)
-        for epoch in range(self.num_epochs):
+        for _ in range(self.num_epochs):
             total_loss = 0.0
             self.model.train()
 
@@ -191,7 +192,7 @@ class RNNmodel():
             reals = []
             for padded_data, sequence_lengths, mask, batch_target in test_dataloader:
                 predictions = self.model(padded_data, sequence_lengths, mask)
-                reals.append(batch_target.to('cuda'))
+                reals.append(batch_target.to(self.device))
                 preds.append(predictions.flatten(end_dim=1))
 
         all_predictions = torch.round(torch.cat(preds, dim=0))
@@ -216,48 +217,57 @@ class RNNmodel():
         cv = KFold(5)
 
         for train, test in cv.split(X, y):
-            dataloader = DataLoader(list(zip([torch.tensor(X[i]) for i in train], [y[i] for i in train])), batch_size=self.batch_size,  shuffle=True, collate_fn=custom_collate_fn)
-            dataloader_true = DataLoader(list(zip([torch.tensor(X[i]) for i in test], [y[i] for i in test])), batch_size=self.batch_size,  shuffle=True, collate_fn=custom_collate_fn)
+            dataloader = DataLoader(list(zip([torch.tensor(X[i]) for i in train], [y[i] for i in train])), batch_size=self.batch_size, shuffle=True, collate_fn=self.custom_collate_fn)
+            dataloader_true = DataLoader(list(zip([torch.tensor(X[i]) for i in test], [y[i] for i in test])), batch_size=self.batch_size, shuffle=True, collate_fn=self.custom_collate_fn)
             self.train(dataloader, dataloader_true)
             preds, all_reals = self.predict(dataloader_true)
             score = f1_score(all_reals, preds)
             scores.append(score)
 
-        scores = np.mean(scores)
-        return scores
+        return np.mean(scores)
 
-def reverse_padded_sequence(tensor, lengths):
+    def custom_collate_fn(self, batch):
+        """
+        Custom collate function for DataLoader.
+
+        Args:
+            batch (list): List of (input, target) pairs.
+
+        Returns:
+            tuple: A tuple containing the padded data, sequence lengths, mask, and targets.
+        """
+        inputs, targets = zip(*batch)
+        inputs = [x.to(torch.float32).to(self.device).transpose(0, 1) for x in inputs]
+        # Sort inputs by sequence length in descending order
+        sorted_inputs = sorted(zip(inputs, targets), key=lambda x: len(x[0]), reverse=True)
+        inputs, targets = zip(*sorted_inputs)
+
+        # Pad the sequences to the same length within a batch
+        sequence_lengths = torch.tensor([len(seq) for seq in inputs], dtype=torch.float32)
+        padded_data = reverse_padded_sequence(inputs, sequence_lengths, self.device)
+
+        # Create a binary mask indicating valid elements
+        mask = torch.arange(padded_data.size(1)).expand(len(sequence_lengths), padded_data.size(1)) < sequence_lengths.unsqueeze(1)
+
+        return padded_data, sequence_lengths, mask.to(self.device), torch.tensor(targets, dtype=torch.float32).to(self.device)
+
+def reverse_padded_sequence(tensor, lengths, device):
     """
     Reverses the padded sequence along the time dimension.
 
     Args:
         tensor (torch.Tensor): Padded tensor of shape (batch_size, max_length, *).
         lengths (torch.Tensor): Tensor of sequence lengths for each sequence in the batch.
+        device (torch.device): The device on which the tensor should be created.
 
     Returns:
         torch.Tensor: Tensor with reversed padded sequence.
     """
     lengths = lengths.to(torch.int32)
-    out = np.zeros([len(tensor), max([v.shape[0] for v in tensor]), tensor[1].shape[1]])
+    out = np.zeros(
+        [len(tensor), max(v.shape[0] for v in tensor), tensor[1].shape[1]]
+    )
     tensor_t = [t.cpu().numpy() for t in tensor]
     for i in range(out.shape[0]):
         out[i, -lengths[i]:, :] = tensor_t[i]
-    return torch.tensor(out, dtype=torch.float32).to('cuda')
-
-# Create a DataLoader for batching with custom collate function
-def custom_collate_fn(batch):
-    inputs, targets = zip(*batch)
-    length = max([len(xt) for xt in inputs])
-    inputs = [x.to(torch.float32).to('cuda').transpose(0, 1) for x in inputs]
-    # Sort inputs by sequence length in descending order
-    sorted_inputs = sorted(zip(inputs, targets), key=lambda x: len(x[0]), reverse=True)
-    inputs, targets = zip(*sorted_inputs)
-
-    # Pad the sequences to the same length within a batch
-    sequence_lengths = torch.tensor([len(seq) for seq in inputs], dtype=torch.float32)
-    padded_data = reverse_padded_sequence(inputs, sequence_lengths)
-
-    # Create a binary mask indicating valid elements
-    mask = torch.arange(padded_data.size(1)).expand(len(sequence_lengths), padded_data.size(1)) < sequence_lengths.unsqueeze(1)
-
-    return padded_data, sequence_lengths, mask.to('cuda'), torch.tensor(targets, dtype=torch.float32).to('cuda')
+    return torch.tensor(out, dtype=torch.float32).to(device)
