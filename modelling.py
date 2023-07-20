@@ -62,11 +62,11 @@ def optim(trial):
     hidden_size = trial.suggest_categorical('hidden_size',[32,64,128,256,512]) #trial.suggest_categorical('hidden_size',[32,64,128,256])  # Number of units in the hidden layer
     num_layers = trial.suggest_categorical('num_layers',[1,2,3])  # Number of recurrent layers
     model_arch = trial.suggest_categorical('model_arch',['lstm','gru','rnn'])
-    num_epochs = 1000
+    num_epochs = 2000
     batch_size = 250
     dropout = trial.suggest_categorical('dropout',[0,0.1,0.2])
     l2 = trial.suggest_categorical('l2',[0,0.0001,0.001,0.01])
-    lr = trial.suggest_categorical('lr',[0.000001,0.00001,0.0001])
+    lr = trial.suggest_categorical('lr',[0.00001,0.0001,0.001])
     output_size = 1  # Number of classes (binary)
     model = RNNmodel(input_size,hidden_size,num_layers,output_size,model_arch,num_epochs,batch_size,dropout,l2,lr)
     

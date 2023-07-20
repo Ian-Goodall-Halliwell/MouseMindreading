@@ -4,6 +4,7 @@ from torch.utils.data import DataLoader
 from sklearn.model_selection import KFold
 from sklearn.metrics import f1_score
 import numpy as np
+import tqdm
 from torch.nn.utils.rnn import pad_sequence, pack_padded_sequence, pad_packed_sequence
 class RNNClassifier(nn.Module):
     """
@@ -136,7 +137,7 @@ class RNNmodel():
         count = 0
         state = None
         optimstate = None
-
+        bar = tqdm.tqdm(total=self.num_epochs)
         for epoch in range(self.num_epochs):
             total_loss = 0.0
             self.model.train()
@@ -166,19 +167,21 @@ class RNNmodel():
             if test_avg_loss >= prevloss:
                 
                 count += 1
-                if count >= 20:
+                if count >= 40:
                     self.model.load_state_dict(state)
                     optimizer.load_state_dict(optimstate)
                     break
             else:
-                
+                bar.set_description(f"Best valid loss: {test_avg_loss}")
                 count = 0
                 prevloss = test_avg_loss
                 state = self.model.state_dict()
                 optimstate = optimizer.state_dict()
-            print(f"Epoch [{epoch+1}/{self.num_epochs}], Train Loss: {avg_loss:.4f}, Valid Loss: {test_avg_loss:.4f}")
+            bar.update(1)
+            #print(f"Epoch [{epoch+1}/{self.num_epochs}], Train Loss: {avg_loss:.4f}, Valid Loss: {test_avg_loss:.4f}")
 
         self.model.load_state_dict(state)
+        bar.close()
 
     def predict(self, test_dataloader):
         """
