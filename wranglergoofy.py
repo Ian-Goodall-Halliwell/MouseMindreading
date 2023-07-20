@@ -1,7 +1,7 @@
 import numpy as np
 from joblib import Parallel, delayed
 from sklearn.preprocessing import MinMaxScaler
-
+from movement_onset_detection import movement_onset
 def preprocess():
     """
     Preprocesses the data.
@@ -24,24 +24,27 @@ def preprocess():
 
     outputdata = []
     outputlabel = []
-
+    mov = movement_onset({x['mouse_name'] + x['date_exp']:x['wheel'].squeeze() for x in alldat})
     for x in alldat:
         spikes = np.transpose(x["spks"], axes=(1, 0, 2))
         wheel = x["wheel"].squeeze()
-        goquetimes = x['gocue'].copy().squeeze()
-        goquetimes *= 100
-        goquetimes += 50
-        goquetimes = goquetimes.astype(int)
-        regs = x['brain_area']
-        resptimes = x['response_time'].copy().squeeze()
-        resptimes *= 100
-        resptimes += 50
-        resptimes = resptimes.astype(int)
+        # goquetimes = x['gocue'].copy().squeeze()
+        # goquetimes *= 100
+        # goquetimes += 50
+        # goquetimes = goquetimes.astype(int)
+        starttime = 50
+        movementset = mov[x['mouse_name'] + x['date_exp']]
+        
+        # resptimes = x['response_time'].copy().squeeze()
+        # resptimes *= 100
+        # resptimes += 50
+        # resptimes = resptimes.astype(int)
 
         def _f(goquetimes, resptimes, wheel, xv, mintime, x, e):
-            goque = goquetimes[e]
             resptime = resptimes[e]
-            wheel_temp = wheel[e][goque:resptime]
+            if resptime != resptime:
+                return
+            wheel_temp = wheel[e][goquetimes:resptime]
             wheel_direction = np.mean(wheel_temp)
             if wheel_direction > 0:
                 wheeldir = 'left'
@@ -51,13 +54,13 @@ def preprocess():
                 wheeldir = 'nogo'
                 return
 
-            maxpregodata = xv[:, 50:mintime]
+            maxpregodata = xv[:, goquetimes:resptime]
             return goofit(maxpregodata, x['ccf']), wheeldir
 
-        with Parallel(n_jobs=12, backend='loky') as parallel:
+        with Parallel(n_jobs=12, backend='threading') as parallel:
             data = parallel(delayed(_f)(
-                goquetimes,
-                resptimes,
+                starttime,
+                movementset,
                 wheel,
                 xv,
                 mintime,
@@ -83,17 +86,17 @@ def goofit(x, coords):
         numpy.ndarray: Transformed data.
     """
     def shrink(x):
-        scaler = MinMaxScaler((0, 99))
+        scaler = MinMaxScaler((0, 49))
         return scaler.fit_transform(x.reshape(-1, 1))
 
     coords = np.apply_along_axis(shrink, 0, coords).squeeze()
     coords = (coords).astype(int)
     coords = np.where(coords < 0, 0, coords)
-    allouts = np.zeros((3, 100, x.shape[1]))
+    allouts = np.zeros((3, 50, x.shape[1]))
 
     for ax in range(coords.shape[1]):
         axcoord = coords[:, ax]
-        output = np.zeros((100, x.shape[1]))
+        output = np.zeros((50, x.shape[1]))
 
         for e, v in enumerate(axcoord):
             output[v] += x[e]
