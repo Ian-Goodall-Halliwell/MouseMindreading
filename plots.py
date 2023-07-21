@@ -4,7 +4,7 @@ import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
 
-max_t = 2.5
+max_t = 2500
 cmap = matplotlib.cm.get_cmap('cividis')
 col_yellow = cmap(0.9)
 color = [[.9, 0, 0]]
@@ -48,7 +48,7 @@ def raster(spiketimes, i_trial=None, i_neuron=None, ax=None):
         ax[0].set_title('Trial #' + str(i_trial))
         ax[0].set_xlim((-.01*max_t, 1.01*max_t))
         ax[0].set_ylim((-.02*spiketimes.shape[0], 1.02*spiketimes.shape[0]))
-        ax[0].set_xlabel('Time [s]')
+        ax[0].set_xlabel('Time [ms]')
         ax[0].set_ylabel('Neuron index')
     # plot spikes from all trials for a specific neuron
     if i_neuron is not None:
@@ -58,7 +58,7 @@ def raster(spiketimes, i_trial=None, i_neuron=None, ax=None):
         ax[1].set_title('Neuron #' + str(i_neuron))
         ax[1].set_xlim((-.01*max_t, 1.01*max_t))
         ax[1].set_ylim((-.02*spiketimes.shape[1], 1.02*spiketimes.shape[1]))
-        ax[1].set_xlabel('Time [s]')
+        ax[1].set_xlabel('Time [ms]')
         ax[1].set_ylabel('Trial index')
 
     return ax
