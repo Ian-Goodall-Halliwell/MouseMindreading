@@ -62,3 +62,26 @@ def raster(spiketimes, i_trial=None, i_neuron=None, ax=None):
         ax[1].set_ylabel('Trial index')
 
     return ax
+
+
+def rebin_offsets(spikebins, edges, i_trial=0, i_neuron=0):
+    """Plot the histograms of rebinned spiketimes for an example neuron and trial - one subplot for each offset.
+
+    :param spikebins: list of numpy arrays, containing results of util.bin_spiketimes() for different offsets
+    :param edges: list of arrays of bin edges used for binning - as returned by util.bin_spiketimes()
+    :param i_trial: index of trial for which all neurons should be plotted.
+    :param i_neuron: index of neuron for which all trials should be plotted.
+    :return: ax: list of axes objects
+    """
+
+    # plot all offsets for one neuron & trial
+    fig, ax = plt.subplots(len(spikebins), 1, layout='constrained')
+    for off in range(len(spikebins)):
+        ax[off].stairs(spikebins[off][i_neuron][i_trial], edges[off])
+        # ax[off].bar(edges[off][:-1] + bin_size/2, spikebins[off][i_neuron][i_trial], width=bin_size)
+        ax[off].set_xlim((0, max_t))
+        ax[off].set_ylabel('off: ' + str(edges[off][0]))
+    [ax[o].set_xticklabels('') for o in range(len(spikebins) - 1)]
+    ax[-1].set_xlabel('Time [ms]')
+
+    return ax
