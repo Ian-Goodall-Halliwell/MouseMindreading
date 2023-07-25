@@ -64,18 +64,22 @@ def raster(spiketimes, i_trial=None, i_neuron=None, ax=None):
     return ax
 
 
-def rebin_offsets(spikebins, edges, i_trial=0, i_neuron=0):
+def rebin_offsets(spikebins, edges, i_trial=0, i_neuron=0, ax=None):
     """Plot the histograms of rebinned spiketimes for an example neuron and trial - one subplot for each offset.
 
     :param spikebins: list of numpy arrays, containing results of util.bin_spiketimes() for different offsets
     :param edges: list of arrays of bin edges used for binning - as returned by util.bin_spiketimes()
     :param i_trial: index of trial for which all neurons should be plotted.
     :param i_neuron: index of neuron for which all trials should be plotted.
+    :param ax: list of axes objects to plot in (same length as spikebins). If None, a new figure will be created
     :return: ax: list of axes objects
     """
 
+    assert ax is None or len(ax) == len(spikebins), "ax must be None or a list of same length as spikebins"
+
     # plot all offsets for one neuron & trial
-    fig, ax = plt.subplots(len(spikebins), 1, layout='constrained')
+    if not ax:
+        fig, ax = plt.subplots(len(spikebins), 1, layout='constrained')
     for off in range(len(spikebins)):
         ax[off].stairs(spikebins[off][i_neuron][i_trial], edges[off])
         # ax[off].bar(edges[off][:-1] + bin_size/2, spikebins[off][i_neuron][i_trial], width=bin_size)
@@ -85,3 +89,49 @@ def rebin_offsets(spikebins, edges, i_trial=0, i_neuron=0):
     ax[-1].set_xlabel('Time [ms]')
 
     return ax
+
+
+def rebin_matrix(spikebins, edges, i_trial=None, i_neuron=None):
+    """Plot the matrix plot of rebinned spiketimes of a certain neuron (all trials) or a certain trial (all neurons)
+
+    :param spikebins: list of numpy arrays, containing results of util.bin_spiketimes() for different offsets
+    :param edges: list of arrays of bin edges used for binning - as returned by util.bin_spiketimes()
+    :param i_trial: index of trial for which all neurons should be plotted. leave None to plot all trials of i_neuron
+    :param i_neuron: index of neuron for which all trials should be plotted. leave None to plot all neurons of i_trial
+    :return: ax: list of axes objects
+    """
+
+    # check inputs
+    assert i_trial is None or i_neuron is None, "either i_trial or i_neuron must be None"
+    assert i_trial or i_neuron, "must pass an index to a specific trial (i_trial) and/or neuron (i_neuron)"
+    i_example_hist = 100  # if i_trial==None, this will be the example trial for the histogram, otherwise the neuron
+
+    # get absolute maximum of all bins for all offsets (both for
+    max_spikebins = np.max([np.max(s) for s in spikebins])  # todo: max_spikebins is wrong
+    if i_trial is None:
+        max_hist = np.max([np.max(s[i_neuron][i_example_hist]) for s in spikebins])
+    elif i_neuron is None:
+        max_hist = np.max([np.max(s[i_example_hist][i_trial]) for s in spikebins])
+
+    # plot all offsets for one neuron & trial
+    for off in range(len(spikebins)):
+        fig, ax = plt.subplots(2, 2, layout='constrained', height_ratios=(10, 1), width_ratios=(20, 1))
+        if i_trial is None:
+            mat_data = spikebins[off][i_neuron][:]
+            mat_ylabel = 'Trial #'
+            rebin_offsets([spikebins[off]], [edges[off]], i_trial=i_example_hist, i_neuron=i_neuron, ax=[ax[1][0]])
+        elif i_neuron is None:
+            mat_data = spikebins[off][:][i_trial]
+            mat_ylabel = 'Neuron #'
+            rebin_offsets([spikebins[off]], [edges[off]], i_trial=i_trial, i_neuron=i_example_hist, ax=[ax[1][0]])
+        h_mat = ax[0][0].imshow(mat_data, aspect='auto', cmap='cividis')
+        ax[0][0].set_ylabel(mat_ylabel)
+        h_cbar = plt.colorbar(h_mat, cax=ax[0][1])
+        # h_cbar.set_ticks(list(range(max_spikebins+1)))  # todo: max_spikebins is wrong
+        ax[1][0].set_ylim((0, max_hist + 0.5))
+        ax[1][0].set_yticks((0, max_hist))
+        ax[1][0].set_ylabel('N spikes')
+        ax[1][0].set_xlabel('Time [ms]')
+        ax[1][1].axis('off')
+
+    return fig

@@ -5,8 +5,8 @@ import util
 
 # load spike data (run download_lfp.py first)
 # todo: uncomment the following line (and comment the one below) to load just the first session to speed up testing
-# dat_st = np.load("dat_test_s0.npy", allow_pickle=True)
-dat_st = np.load("dat_st.npy", allow_pickle=True)
+dat_st = np.load("dat_test_s0.npy", allow_pickle=True)
+# dat_st = np.load("dat_st.npy", allow_pickle=True)
 i_session = 0
 spiketimes = dat_st[i_session]['ss']
 spiketimes = spiketimes * 1000  # seconds -> milliseconds
@@ -25,5 +25,9 @@ ax = plots.raster(spiketimes, i_trial=i_trial, i_neuron=i_neuron)
 
 # plot all offsets for one neuron & trial
 ax = plots.rebin_offsets(spikebins, edges, i_trial=i_trial, i_neuron=i_neuron)
+
+# matrix plots (with histograms as above) for all offsets
+# fig = plots.rebin_matrix(spikebins, edges, i_trial=None, i_neuron=i_neuron)  # todo: this plots all offsets
+fig = plots.rebin_matrix([spikebins[0]], [edges[0]], i_trial=None, i_neuron=i_neuron)
 
 plt.show()
