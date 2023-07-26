@@ -7,7 +7,7 @@ from model import RNNmodel
 from sklearn.preprocessing import LabelEncoder
 
 # Set the device to CUDA (GPU) if available; otherwise, use CPU
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+device = "mps" if torch.backends.mps.is_available() else "cpu"
 
 # Set the random seed for reproducibility
 torch.manual_seed(47)
