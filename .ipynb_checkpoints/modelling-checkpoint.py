@@ -8,6 +8,7 @@ from sklearn.preprocessing import LabelEncoder
 
 # Set the device to CUDA (GPU) if available; otherwise, use CPU
 device = "mps" if torch.backends.mps.is_available() else "cpu"
+print('The device we are using is:, ', device)
 
 # Set the random seed for reproducibility
 torch.manual_seed(47)
