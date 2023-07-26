@@ -29,7 +29,7 @@ def raster(spiketimes, i_trial=None, i_neuron=None, ax=None):
     # check inputs
     if i_trial is not None and i_neuron is not None:
         assert not ax or len(ax) == 2
-    assert i_trial or i_neuron, "must pass an index to a specific trial (i_trial) and/or neuron (i_neuron)"
+    assert i_trial is not None or i_neuron is not None, "must pass an index to a specific trial (i_trial) and/or neuron (i_neuron)"
 
     # spike raster plot for one trial (all neurons) and one neuron (all trials)
     if not ax:
@@ -94,7 +94,7 @@ def rebin_offsets(spikebins, edges, i_trial=0, i_neuron=0, ax=None):
     return ax
 
 
-def rebin_matrix(spikebins, edges, i_trial=None, i_neuron=None):
+def rebin_matrix(spikebins, edges, i_trial=None, i_neuron=None, n_trials=None):
     """Plot the matrix plot of rebinned spiketimes of a certain neuron (all trials) or a certain trial (all neurons)
 
     :param spikebins: list of numpy arrays, containing results of util.bin_spiketimes() for different offsets
@@ -106,11 +106,10 @@ def rebin_matrix(spikebins, edges, i_trial=None, i_neuron=None):
 
     # check inputs
     assert i_trial is None or i_neuron is None, "either i_trial or i_neuron must be None"
-    assert i_trial or i_neuron, "must pass an index to a specific trial (i_trial) and/or neuron (i_neuron)"
+    assert i_trial is not None or i_neuron is not None, "must pass an index to a specific trial (i_trial) and/or neuron (i_neuron)"
     i_example_hist = 100  # if i_trial==None, this will be the example trial for the histogram, otherwise the neuron
 
     # get absolute maximum of all bins for all offsets (both for
-    max_spikebins = np.max([np.max(s) for s in spikebins])  # todo: max_spikebins is wrong
     if i_trial is None:
         max_hist = np.max([np.max(s[i_neuron][i_example_hist]) for s in spikebins])
     elif i_neuron is None:
@@ -119,10 +118,13 @@ def rebin_matrix(spikebins, edges, i_trial=None, i_neuron=None):
     # plot all offsets for one neuron & trial
     figs = []
     for off in range(len(spikebins)):
-        fig, ax = plt.subplots(2, 2, layout='constrained', height_ratios=(10, 1), width_ratios=(20, 1))
+        fig, ax = plt.subplots(2, 2, layout='constrained', height_ratios=(10, 1), width_ratios=(20, 1), figsize=(5, 4))
 
         if i_trial is None:
-            mat_data = spikebins[off][i_neuron][:]
+            if n_trials:
+                mat_data = spikebins[off][i_neuron][:n_trials]
+            else:
+                mat_data = spikebins[off][i_neuron][:]
             mat_ylabel = 'Trial #'
             rebin_offsets([spikebins[off]], [edges[off]], i_trial=i_example_hist, i_neuron=i_neuron, ax=[ax[1][0]])
         elif i_neuron is None:
@@ -130,14 +132,18 @@ def rebin_matrix(spikebins, edges, i_trial=None, i_neuron=None):
             mat_ylabel = 'Neuron #'
             rebin_offsets([spikebins[off]], [edges[off]], i_trial=i_trial, i_neuron=i_example_hist, ax=[ax[1][0]])
         h_mat = ax[0][0].imshow(mat_data, aspect='auto', cmap='cividis')
+        ax[0][0].set_xticklabels('')
         ax[0][0].set_ylabel(mat_ylabel)
+        ax[0][0].set_title('Neuron ' + str(i_neuron) + ' - Offset: ' + str(int(off/len(spikebins) * (edges[off][1] - edges[off][0]))) + ' ms')
         h_cbar = plt.colorbar(h_mat, cax=ax[0][1])
-        # h_cbar.set_ticks(list(range(max_spikebins+1)))  # todo: max_spikebins is wrong
+        h_cbar.set_label('N spikes')
+        h_cbar.set_ticks(list(range(np.max(mat_data)+1)))
         ax[1][0].set_ylim((0, max_hist + 0.5))
         ax[1][0].set_yticks((0, max_hist))
         ax[1][0].set_ylabel('N spikes')
         ax[1][0].set_xlabel('Time [ms]')
         ax[1][1].axis('off')
+        ax[1][1].text(0, 0, '<- Trial ' + str(i_example_hist))
         figs.append(fig)
 
     return figs
