@@ -1,5 +1,8 @@
 # plotting functions
 
+import os
+import glob
+from PIL import Image
 import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
@@ -98,7 +101,7 @@ def rebin_matrix(spikebins, edges, i_trial=None, i_neuron=None):
     :param edges: list of arrays of bin edges used for binning - as returned by util.bin_spiketimes()
     :param i_trial: index of trial for which all neurons should be plotted. leave None to plot all trials of i_neuron
     :param i_neuron: index of neuron for which all trials should be plotted. leave None to plot all neurons of i_trial
-    :return: ax: list of axes objects
+    :return: figs: list of figure objects
     """
 
     # check inputs
@@ -114,8 +117,10 @@ def rebin_matrix(spikebins, edges, i_trial=None, i_neuron=None):
         max_hist = np.max([np.max(s[i_example_hist][i_trial]) for s in spikebins])
 
     # plot all offsets for one neuron & trial
+    figs = []
     for off in range(len(spikebins)):
         fig, ax = plt.subplots(2, 2, layout='constrained', height_ratios=(10, 1), width_ratios=(20, 1))
+
         if i_trial is None:
             mat_data = spikebins[off][i_neuron][:]
             mat_ylabel = 'Trial #'
@@ -133,5 +138,50 @@ def rebin_matrix(spikebins, edges, i_trial=None, i_neuron=None):
         ax[1][0].set_ylabel('N spikes')
         ax[1][0].set_xlabel('Time [ms]')
         ax[1][1].axis('off')
+        figs.append(fig)
 
-    return fig
+    return figs
+
+
+def save_gif(figs, filename='gif', scaling_factor=1, frame_duration_ms=500, n_loops=0):
+    """String a list of figures into a gif and save.
+
+    :param figs: list of matplotlib.Figure objects
+    :param filename:
+    :param scaling_factor: width in pixels of the resulting .gif will be the minimum width of all images times this
+    :param frame_duration_ms: duration of each .gif frame in milliseconds
+    :param n_loops: number of loops the .gif will go through. 0 means infinitely looping, -1 means no loops
+    :return:
+    """
+
+    print('saving images', end='')
+    image_names = []
+    for i, fig in enumerate(figs):
+        image_names.append(str(i).zfill(3) + '.png')
+        fig.savefig(image_names[i])
+        print('.', end='')
+        plt.close(fig)
+    # loop through list of image files, open and append to list of frames
+    print('\nreading images', end='')
+    frames = []
+    img_widths = []
+    for img in image_names:
+        frames.append(Image.open(img))
+        img_widths.append(frames[-1].size[0])
+        print('.', end='')
+        os.remove(img)
+
+    # resize frames to match
+    print('\nresizing frames', end='')
+    gif_width = img_widths[0] * scaling_factor
+    for i, frm in enumerate(frames):
+        frames[i] = frm.resize((round(gif_width), round(frm.size[1] * gif_width / frm.size[0])),
+                               Image.Resampling.LANCZOS)
+        print('.', end='')
+
+    # save frames (in reversed order) into an infinitely looping gif
+    print('\nsaving gif')
+    frames[-1].save(
+        filename + '_' + str(frame_duration_ms) + '_' + str(n_loops) + '_' +
+        str(scaling_factor) + '.gif', format='GIF', append_images=frames[-2::-1],
+        save_all=True, duration=frame_duration_ms, disposal=2, optimize=True, loop=n_loops)

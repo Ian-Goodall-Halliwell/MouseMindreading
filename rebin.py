@@ -28,6 +28,9 @@ ax = plots.rebin_offsets(spikebins, edges, i_trial=i_trial, i_neuron=i_neuron)
 
 # matrix plots (with histograms as above) for all offsets
 # fig = plots.rebin_matrix(spikebins, edges, i_trial=None, i_neuron=i_neuron)  # todo: this plots all offsets
-fig = plots.rebin_matrix([spikebins[0]], [edges[0]], i_trial=None, i_neuron=i_neuron)
+fig = plots.rebin_matrix(spikebins, edges, i_trial=None, i_neuron=i_neuron)
+
+# save as gif
+plots.save_gif(fig)
 
 plt.show()
