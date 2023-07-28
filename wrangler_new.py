@@ -2,8 +2,11 @@ import numpy as np
 from movement_onset_detection import movement_onset
 from joblib import Parallel, delayed
 from sklearn.preprocessing import MinMaxScaler
-def preprocess(minamnt=10,ver="regions",reg=None):
+from util import bin_spiketimes
+from tqdm import tqdm
+def preprocess(minamnt=10,ver="regions",reg=None,thresh=None):
     alldat = np.load("alldata.npy", allow_pickle=True)
+    dat_st = np.load("dat_st.npy", allow_pickle=True)
     if ver == "regions":
         allgoques = []
         allneurs = {}
@@ -30,47 +33,38 @@ def preprocess(minamnt=10,ver="regions",reg=None):
         outputdata = []
         outputlabel = []
         mov = movement_onset({x['mouse_name'] + x['date_exp']:x['wheel'].squeeze() for x in alldat})
-        for x in alldat:
-            spikes = np.transpose(x["spks"],axes=(1,0,2))
+        for endx,x in tqdm(enumerate(alldat)):
+            # xtemp = [np.transpose(x["spks"],axes=(1,0,2))]
+            #xtemp = [np.transpose(spikes_,axes=(1,0,2))]
+            spikes = dat_st[endx]['ss']
             wheel = x["wheel"].squeeze()
             
             regs = x['brain_area']
             starttime = 50
             movementset = mov[x['mouse_name'] + x['date_exp']]
-        def _f(goquetimes, resptimes, wheel, xv, mintime, x, e,reg):
-            resptime = resptimes[e]
-            if resptime != resptime:
-                return
-            wheel_temp = wheel[e][goquetimes:resptime]
-            wheel_direction = np.mean(wheel_temp)
-            if wheel_direction > 0:
-                wheeldir = 'left'
-            elif wheel_direction < 0:
-                wheeldir = 'right'
-            else:
-                wheeldir = 'nogo'
-                return
-            regidxs = x['brain_area']
-            regidxs = np.where(regidxs == reg, True,False)
-            maxpregodata = xv[:, goquetimes:resptime]
-            maxpregodata = maxpregodata[regidxs]
-            ccfdata = x['ccf'][regidxs]
-            return goofit(maxpregodata, ccfdata), wheeldir
+            
+            spikes = spikes * 1000
+            xtemp,_ = bin_spiketimes(spikes,bin_size=10,offset_step=2)
+            xtemp = [np.transpose(vv,axes=(1,0,2)) for vv in xtemp]
 
-        with Parallel(n_jobs=12, backend='threading') as parallel:
-            data = parallel(delayed(_f)(
-                starttime,
-                movementset,
-                wheel,
-                xv,
-                mintime,
-                x,
-                e,
-                reg,
-            ) for e, xv in enumerate(spikes))
+            for z in xtemp:
+                with Parallel(n_jobs=12, backend='loky') as parallel:
+                    
+                    data = parallel(delayed(_f)(
+                        starttime,
+                        movementset,
+                        wheel,
+                        xv,
+                        mintime,
+                        x,
+                        e,
+                        reg,
+                        thresh,
+                        minamnt,
+                    ) for e, xv in enumerate(z))
 
-        [outputdata.append(x[0]) for x in data if x is not None]
-        [outputlabel.append(x[1]) for x in data if x is not None]
+                [outputdata.append(x[0]) for x in data if x is not None]
+                [outputlabel.append(x[1]) for x in data if x is not None]
             
         
         return {"features":outputdata,"labels":outputlabel,"cutoffs":allneurmin}
@@ -129,7 +123,33 @@ def preprocess(minamnt=10,ver="regions",reg=None):
                     outputlabel[x['mouse_name'] + x['date_exp']].append(wheeldir)
     
     return {"features":outputdata,"labels":outputlabel,"cutoffs":None}
-
+def _f(goquetimes, resptimes, wheel, xv, mintime, x, e,reg,thresh,minamnt):
+                
+    resptime = resptimes[e]
+    if resptime != resptime:
+        return
+    wheel_temp = wheel[e][goquetimes:resptime]
+    wheel_direction = np.mean(wheel_temp)
+    if wheel_direction > 0:
+        wheeldir = 'left'
+    elif wheel_direction < 0:
+        wheeldir = 'right'
+    else:
+        wheeldir = 'nogo'
+        return
+    regidxs = x['brain_area']
+    regidxs = np.where(regidxs == reg, True,False)
+    if np.sum(regidxs) < minamnt:
+        return
+    maxpregodata = xv[:, goquetimes:resptime]
+    maxpregodata = maxpregodata[regidxs]
+    ccfdata = x['ccf'][regidxs]
+    contrast = abs(x['contrast_left'][e] - x['contrast_right'][e])
+    
+    if contrast >= thresh and np.sum(ccfdata) > 1:
+        return goofit(maxpregodata, ccfdata), wheeldir
+    else:
+        pass
 def goofit(x, coords):
     """
     Applies a transformation to the given data based on the provided coordinates.
@@ -142,17 +162,17 @@ def goofit(x, coords):
         numpy.ndarray: Transformed data.
     """
     def shrink(x):
-        scaler = MinMaxScaler((0, 9))
+        scaler = MinMaxScaler((0, 4))
         return scaler.fit_transform(x.reshape(-1, 1))
 
     coords = np.apply_along_axis(shrink, 0, coords).squeeze()
     coords = (coords).astype(int)
     coords = np.where(coords < 0, 0, coords)
-    allouts = np.zeros((3, 10, x.shape[1]))
+    allouts = np.zeros((3, 5, x.shape[1]))
 
     for ax in range(coords.shape[1]):
         axcoord = coords[:, ax]
-        output = np.zeros((10, x.shape[1]))
+        output = np.zeros((5, x.shape[1]))
 
         for e, v in enumerate(axcoord):
             output[v] += x[e]
@@ -160,3 +180,4 @@ def goofit(x, coords):
         allouts[ax] = output
 
     return allouts.reshape(-1, allouts.shape[-1])
+    

@@ -1,12 +1,13 @@
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
-from sklearn.model_selection import KFold
+from sklearn.model_selection import KFold,StratifiedKFold
 from sklearn.metrics import f1_score
 import numpy as np
 import tqdm
+from sklearn.metrics import roc_curve
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
-
+from torchsummary import summary
 class RNNClassifier(nn.Module):
     """
     RNNClassifier is a class that defines the RNN-based classifier model.
@@ -126,7 +127,7 @@ class RNNmodel():
         # Define the loss function and optimizer
         criterion = nn.BCELoss()
         optimizer = torch.optim.Adam(self.model.parameters(), lr=self.lr, weight_decay=self.l2)
-
+        max_grad_norm = 1.0
         # Training loop
         prevloss = 1000
         count = 0
@@ -143,6 +144,7 @@ class RNNmodel():
                 outputs = self.model(padded_data, sequence_lengths, mask)
                 loss = criterion(outputs.squeeze(), batch_target)
                 loss.backward()
+                #torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_grad_norm)
                 optimizer.step()
                 total_loss += loss.item()
 
@@ -160,7 +162,7 @@ class RNNmodel():
 
             if test_avg_loss >= prevloss:
                 count += 1
-                if count >= 40:
+                if count >= 50:
                     self.model.load_state_dict(state)
                     optimizer.load_state_dict(optimstate)
                     break
@@ -195,7 +197,7 @@ class RNNmodel():
                 reals.append(batch_target.to(self.device))
                 preds.append(predictions.flatten(end_dim=1))
 
-        all_predictions = torch.round(torch.cat(preds, dim=0))
+        all_predictions = torch.cat(preds, dim=0)
         all_predictions = all_predictions.detach().to('cpu').numpy()
         all_reals = torch.cat(reals, dim=0)
         all_reals = all_reals.detach().to('cpu').numpy()
@@ -214,17 +216,24 @@ class RNNmodel():
             float: Mean F1 score across all cross-validation folds.
         """
         scores = []
-        cv = KFold(5)
-
+        allreal = []
+        cv = StratifiedKFold(5,shuffle=True)
+        allpred = []
         for train, test in cv.split(X, y):
+            #print(np.mean(y[train]))
+            
             dataloader = DataLoader(list(zip([torch.tensor(X[i]) for i in train], [y[i] for i in train])), batch_size=self.batch_size, shuffle=True, collate_fn=self.custom_collate_fn)
             dataloader_true = DataLoader(list(zip([torch.tensor(X[i]) for i in test], [y[i] for i in test])), batch_size=self.batch_size, shuffle=True, collate_fn=self.custom_collate_fn)
             self.train(dataloader, dataloader_true)
             preds, all_reals = self.predict(dataloader_true)
+            allpred.append(preds)
+            allreal.append(all_reals)
+            preds = np.rint(preds)
             score = f1_score(all_reals, preds)
+            print(score)
             scores.append(score)
 
-        return np.mean(scores)
+        return np.mean(scores), allpred,allreal
 
     def custom_collate_fn(self, batch):
         """
@@ -263,11 +272,16 @@ def reverse_padded_sequence(tensor, lengths, device):
     Returns:
         torch.Tensor: Tensor with reversed padded sequence.
     """
+    rev = True
     lengths = lengths.to(torch.int32)
     out = np.zeros(
         [len(tensor), max(v.shape[0] for v in tensor), tensor[1].shape[1]]
     )
     tensor_t = [t.cpu().numpy() for t in tensor]
-    for i in range(out.shape[0]):
-        out[i, -lengths[i]:, :] = tensor_t[i]
+    if rev:
+        for i in range(out.shape[0]):
+            out[i, -lengths[i]:, :] = tensor_t[i]
+    else:
+        for i in range(out.shape[0]):
+            out[i, 0:tensor_t[i].shape[0], :] = tensor_t[i]
     return torch.tensor(out, dtype=torch.float32).to(device)
