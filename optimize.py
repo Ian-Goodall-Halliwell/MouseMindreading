@@ -101,7 +101,7 @@ def optim(trial):
     num_epochs = 2000
     batch_size = 500
     dropout = trial.suggest_categorical('dropout', [0, 0.1, 0.2])
-    l2 = 0 # trial.suggest_categorical('l2', [0, 0.0001, 0.001, 0.01, 0.1, 1])
+    l2 = trial.suggest_categorical('l2', [0, 0.0001, 0.001, 0.01, 0.1, 1])
     lr = trial.suggest_categorical('lr', [0.0001, 0.001, 0.01, 0.1])
     output_size = 1  # Number of classes (binary)
     
