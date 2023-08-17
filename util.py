@@ -1,7 +1,19 @@
 # utility functions
 import numpy as np
+from joblib import Parallel, delayed
+def _f(offset, spiketimes, max_t, bin_size):
+    num_neurons = len(spiketimes)
+    max_bins = int((max_t - offset) / bin_size) + 1
+    edges = np.linspace(offset, max_t, max_bins)
 
+    hist = np.zeros((num_neurons, len(spiketimes[0]), max_bins - 1), dtype=np.int)
 
+    for n, nrn in enumerate(spiketimes):
+        for t, trl in enumerate(nrn):
+            hist[n, t], _ = np.histogram(trl, bins=edges)
+
+    return hist, edges
+        
 def bin_spiketimes(spiketimes, bin_size=10, max_t=2500, offset_step=1):
     """Calculate binned spike counts from raw spike times of a specific session (i.e. dat_st[i_session]['ss'])
 
@@ -21,17 +33,11 @@ def bin_spiketimes(spiketimes, bin_size=10, max_t=2500, offset_step=1):
         offsets = np.array([0])
     hist = []
     edge = []
-
-    for o, offset in enumerate(offsets):
-        hist.append(np.zeros_like(spiketimes))
-        bins = np.arange(offset, max_t+bin_size, bin_size)
-
-        for n, nrn in enumerate(spiketimes):
-            for t, trl in enumerate(nrn):
-                hist[o][n][t], edges = np.histogram(trl, bins=bins)
-        edge.append(edges)
-
-        # stack array so dimensions will be consistent with alldata
-        hist[o] = np.array([np.stack(h) for h in hist[o]])
+    histedge = Parallel(n_jobs=12,backend='loky')(delayed(_f)(offset,spiketimes,max_t,bin_size) for offset in offsets)
+    hist = [x[0] for x  in histedge]
+    edge = [x[1] for x in histedge]    
+        
+    
+        
 
     return hist, edge

@@ -142,17 +142,17 @@ def goofit(x, coords):
         numpy.ndarray: Transformed data.
     """
     def shrink(x):
-        scaler = MinMaxScaler((0, 24))
+        scaler = MinMaxScaler((0, 9))
         return scaler.fit_transform(x.reshape(-1, 1))
 
     coords = np.apply_along_axis(shrink, 0, coords).squeeze()
     coords = (coords).astype(int)
     coords = np.where(coords < 0, 0, coords)
-    allouts = np.zeros((3, 25, x.shape[1]))
+    allouts = np.zeros((3, 10, x.shape[1]))
 
     for ax in range(coords.shape[1]):
         axcoord = coords[:, ax]
-        output = np.zeros((25, x.shape[1]))
+        output = np.zeros((10, x.shape[1]))
 
         for e, v in enumerate(axcoord):
             output[v] += x[e]
@@ -160,4 +160,3 @@ def goofit(x, coords):
         allouts[ax] = output
 
     return allouts.reshape(-1, allouts.shape[-1])
-    
