@@ -47,6 +47,14 @@ class RNNClassifier(nn.Module):
 
         self.fc = nn.Linear(hidden_size, output_size)
         self.sigmoid = nn.Sigmoid()
+        self.init_lstm_weights()
+        
+    def init_lstm_weights(self):
+        for name, param in self.rnn.named_parameters():
+            if 'weight' in name:
+                nn.init.xavier_normal_(param)
+            elif 'bias' in name:
+                nn.init.constant_(param, 0.0)
 
     def forward(self, x, lengths, mask):
         """
@@ -100,7 +108,7 @@ class RNNmodel():
         lr (float): Learning rate.
         model (RNNClassifier): Instance of the RNNClassifier model.
     """
-    def __init__(self, input_size, hidden_size, num_layers, output_size, model_arch, num_epochs, batch_size, dropout, l2, lr, device):
+    def __init__(self, input_size, hidden_size, num_layers, output_size, model_arch, num_epochs, batch_size, dropout, l2, lr, device,random_state=42):
         self.input_size = input_size
         self.hidden_size = hidden_size
         self.num_layers = num_layers
@@ -113,6 +121,7 @@ class RNNmodel():
         self.lr = lr
         self.model = None
         self.device = device
+        self.rs = random_state
 
     def train(self, train_dataloader, valid_dataloader):
         """
@@ -127,7 +136,6 @@ class RNNmodel():
         # Define the loss function and optimizer
         criterion = nn.BCELoss()
         optimizer = torch.optim.Adam(self.model.parameters(), lr=self.lr, weight_decay=self.l2)
-        max_grad_norm = 1.0
         # Training loop
         prevloss = 1000
         count = 0
@@ -217,7 +225,7 @@ class RNNmodel():
         """
         scores = []
         allreal = []
-        cv = StratifiedKFold(5,shuffle=True)
+        cv = StratifiedKFold(5,shuffle=True,random_state=self.rs)
         allpred = []
         for train, test in cv.split(X, y):
             #print(np.mean(y[train]))
