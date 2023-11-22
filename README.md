@@ -3,7 +3,7 @@
 Neuronal Mouse Behavior Detection
 =================================
 
-Welcome to the repository for detecting mouse behavior based on neuronal spiking data from the Steinmetz dataset. This project includes Python scripts for preprocessing data, optimizing hyperparameters, and implementing a recurrent neural network (RNN) model. The repository is structured as follows:
+This repository is for code used for detecting mouse behavior based on neuronal spiking data from the Steinmetz dataset. This project includes Python scripts for preprocessing data, optimizing hyperparameters, and implementing a recurrent neural network (RNN) model. The repository is structured as follows:
 
 Files
 -----
